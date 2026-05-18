@@ -20,14 +20,33 @@ def parse_money(v):
     except: return 0
 
 
-def parse_dt(s):
+def parse_dt(s, sheet_month=None):
+    """Parse date robust với cả D/M/Y và M/D/Y format."""
     if not s: return None
-    if isinstance(s, datetime): return s
-    s = str(s).strip()
-    for fmt in ['%d/%m/%Y %H:%M:%S','%d/%m/%Y %H:%M','%d/%m/%Y','%m/%d/%Y %H:%M','%Y-%m-%d %H:%M:%S']:
-        try: return datetime.strptime(s, fmt)
-        except: continue
-    return None
+    if isinstance(s, datetime):
+        dt = s
+    else:
+        s = str(s).strip()
+        dt = None
+        for fmt in ['%d/%m/%Y %H:%M:%S','%d/%m/%Y %H:%M','%d/%m/%Y','%m/%d/%Y %H:%M:%S','%m/%d/%Y %H:%M','%m/%d/%Y','%Y-%m-%d %H:%M:%S','%Y-%m-%d']:
+            try:
+                dt = datetime.strptime(s, fmt)
+                break
+            except: continue
+        if dt is None: return None
+
+    if sheet_month is not None and dt.month != sheet_month:
+        try:
+            swapped = dt.replace(month=dt.day, day=dt.month)
+            if swapped.month == sheet_month:
+                return swapped
+        except ValueError:
+            pass
+        try:
+            return dt.replace(month=sheet_month)
+        except ValueError:
+            return dt.replace(month=sheet_month, day=min(dt.day, 28))
+    return dt
 
 
 def main():
@@ -43,7 +62,7 @@ def main():
     for m in months:
         for r in wb[f'T{m}_DonHang'].iter_rows(min_row=2, values_only=True):
             if not r[0]: continue
-            dt = parse_dt(r[28])
+            dt = parse_dt(r[28], sheet_month=m)
             orders.append({
                 'id': str(r[0]),
                 'product': r[2] or '',
